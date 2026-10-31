@@ -41,7 +41,7 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [expanded, setExpanded] = useState(null);
-  const [openDoc, setOpenDoc] = useState(null); // `${jobId}:${label}`
+  const [openDoc, setOpenDoc] = useState(null); // selected document label
   const [busy, setBusy] = useState(null); // `${jobId}:${op}`
 
   const refresh = useCallback(async () => {
@@ -378,45 +378,62 @@ export default function JobsPage() {
                 )}
                 {Array.isArray(job.documents) && job.documents.length > 0 && (
                   <>
-                    <h4>Documents</h4>
-                    <ul className="docs">
-                      {job.documents.map((doc, i) => {
-                        const key = `${job.id}:${doc.label}`;
-                        const showContent = openDoc === key;
-                        return (
-                          <li key={`${doc.label}-${i}`}>
-                            {doc.url ? (
-                              <a
-                                href={doc.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                    <div className="docs-head">
+                      <h4>Application documents</h4>
+                      <a
+                        href="https://drive.google.com/drive/folders/15-Z16BkdDGcnYWLQAeDkYKa0oK0cDeps"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Drive folder ↗
+                      </a>
+                    </div>
+                    {(() => {
+                      const docs = job.documents;
+                      const selected =
+                        docs.find((d) => d.label === openDoc) ||
+                        docs.find((d) => d.content) ||
+                        docs[0];
+                      return (
+                        <>
+                          <div className="doc-tabs">
+                            {docs.map((doc, i) => (
+                              <button
+                                key={`${doc.label}-${i}`}
+                                className={`doc-tab${doc.label === selected.label ? " active" : ""}`}
+                                onClick={() => setOpenDoc(doc.label)}
                               >
                                 {doc.label}
-                              </a>
-                            ) : (
-                              doc.label
-                            )}
-                            {doc.kind && <span className="kind">{doc.kind}</span>}
-                            {doc.content && (
-                              <>
-                                <span className="has-content">has inline copy</span>{" "}
-                                <button
-                                  className="toggle-detail"
-                                  onClick={() =>
-                                    setOpenDoc(showContent ? null : key)
-                                  }
+                              </button>
+                            ))}
+                          </div>
+                          <div className="doc-pane">
+                            <div className="doc-pane-head">
+                              <span className="doc-pane-title">
+                                {selected.kind || selected.label}
+                                {job.company ? ` — ${job.title}, ${job.company}` : ""}
+                              </span>
+                              {selected.url && (
+                                <a
+                                  href={selected.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                 >
-                                  {showContent ? "Hide" : "View"}
-                                </button>
-                                {showContent && (
-                                  <div className="doc-content">{doc.content}</div>
-                                )}
-                              </>
+                                  Open in Drive ↗
+                                </a>
+                              )}
+                            </div>
+                            {selected.content ? (
+                              <div className="doc-content">{selected.content}</div>
+                            ) : (
+                              <p className="no-detail">
+                                This file lives in Drive — use “Open in Drive ↗” above to view or download it.
+                              </p>
                             )}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
                 {!job.description &&

@@ -130,18 +130,37 @@ button { font: inherit; cursor: pointer; }
 .detail h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 12px 0 4px; }
 .detail h4:first-child { margin-top: 0; }
 .detail p { font-size: 14.5px; color: var(--ink); white-space: pre-wrap; }
-.detail .posting-link { margin-bottom: 6px; }
-.detail .posting-link a { font-weight: 600; font-size: 14.5px; }
+.detail .posting-link { margin-bottom: 10px; }
+.detail .posting-link a {
+  display: block; text-align: center; background: var(--accent); color: #fff;
+  border-radius: var(--radius); padding: 10px 14px; font-weight: 700; font-size: 14.5px;
+}
+.detail .posting-link a:hover { background: var(--accent-dark); text-decoration: none; }
 .detail .no-detail { color: var(--muted); font-size: 14px; }
-.docs { list-style: none; }
-.docs li { padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
-.docs li:last-child { border-bottom: none; }
-.docs .kind { color: var(--muted); font-size: 12.5px; margin-left: 6px; }
-.docs .has-content { color: var(--sage); font-size: 12.5px; margin-left: 6px; }
+.docs-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.docs-head h4 { margin-bottom: 0; }
+.docs-head a { font-size: 13px; font-weight: 600; flex: none; }
+.doc-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.doc-tab {
+  border: 1px solid var(--line); background: var(--surface-alt); color: var(--ink);
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
+}
+.doc-tab.active { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.doc-pane {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); margin-top: 10px; padding: 12px 14px;
+}
+.doc-pane-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+}
+.doc-pane-title { font-weight: 700; font-size: 14px; }
+.doc-pane-head a { font-size: 13px; font-weight: 600; flex: none; }
 .doc-content {
-  white-space: pre-wrap; background: var(--surface-alt); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 12px; font-size: 13px; margin-top: 8px;
-  max-height: 420px; overflow: auto;
+  white-space: pre-wrap; font-size: 13.5px; line-height: 1.6;
+  max-height: 480px; overflow: auto;
 }
 
 /* Actions */
