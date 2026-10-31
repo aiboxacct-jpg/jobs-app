@@ -327,6 +327,11 @@ export default function JobsPage() {
 
             {isOpen && (
               <div className="detail">
+                <p className="posting-link">
+                  <a href={job.url} target="_blank" rel="noopener noreferrer">
+                    Open the original posting ↗
+                  </a>
+                </p>
                 {job.description && (
                   <>
                     <h4>Description</h4>
@@ -388,6 +393,19 @@ export default function JobsPage() {
                     </ul>
                   </>
                 )}
+                {!job.description &&
+                  !job.companyAbout &&
+                  !job.whyFit &&
+                  !(
+                    Array.isArray(job.documents) && job.documents.length > 0
+                  ) && (
+                    <p className="no-detail">
+                      No description was captured for this posting — use the
+                      original posting link above for the full text. (Jobs
+                      saved before October 21, 2026 were stored without
+                      descriptions.)
+                    </p>
+                  )}
               </div>
             )}
           </article>

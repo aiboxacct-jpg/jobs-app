@@ -92,6 +92,9 @@ button { font: inherit; cursor: pointer; }
 .detail h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 12px 0 4px; }
 .detail h4:first-child { margin-top: 0; }
 .detail p { font-size: 14.5px; color: #334155; white-space: pre-wrap; }
+.detail .posting-link { margin-bottom: 6px; }
+.detail .posting-link a { font-weight: 600; font-size: 14.5px; }
+.detail .no-detail { color: var(--muted); font-size: 14px; }
 .docs { list-style: none; }
 .docs li { padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
 .docs li:last-child { border-bottom: none; }
