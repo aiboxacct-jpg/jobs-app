@@ -34,7 +34,7 @@ export default function JobsPage() {
   const [counts, setCounts] = useState({ total: 0 });
   const [error, setError] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [sourceFilter, setSourceFilter] = useState("All");
   const [modeFilter, setModeFilter] = useState("All");
   const [payFilter, setPayFilter] = useState("All");
@@ -80,7 +80,13 @@ export default function JobsPage() {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = jobs.filter((j) => {
-      if (statusFilter !== "All" && j.status !== statusFilter) return false;
+      if (statusFilter === "Active") {
+        // Main list: active jobs only. Skipped/Expired live under their
+        // own tabs and leave this list the moment they're marked.
+        if (j.status === "Skipped" || j.status === "Expired") return false;
+      } else if (statusFilter !== "All" && j.status !== statusFilter) {
+        return false;
+      }
       if (sourceFilter !== "All" && j.source !== sourceFilter) return false;
       if (modeFilter !== "All" && j.workMode !== modeFilter) return false;
       if (payFilter !== "All" && payType(j.salary) !== payFilter) return false;
@@ -156,7 +162,7 @@ export default function JobsPage() {
       </header>
 
       <div className="filters">
-        {["All", ...STATUSES].map((s) => (
+        {["Active", "All", ...STATUSES].map((s) => (
           <button
             key={s}
             className={`chip${statusFilter === s ? " active" : ""}`}
@@ -164,7 +170,11 @@ export default function JobsPage() {
           >
             {s}
             <span className="n">
-              {s === "All" ? counts.total || 0 : counts[s] || 0}
+              {s === "All"
+                ? counts.total || 0
+                : s === "Active"
+                  ? (counts.New || 0) + (counts.Saved || 0) + (counts.Applied || 0)
+                  : counts[s] || 0}
             </span>
           </button>
         ))}
