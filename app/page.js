@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getBrowserClient } from "../lib/supabase-browser";
 import { hourlyEquivalent, payType } from "../lib/pay";
 
@@ -26,6 +28,78 @@ async function callAction(token, action, body = {}) {
 function fmtDate(d) {
   return d ? String(d).slice(0, 10) : "";
 }
+
+function fmtDateTime(d) {
+  if (!d) return "";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(d));
+  } catch {
+    return fmtDate(d);
+  }
+}
+
+function hastText(node) {
+  if (!node) return "";
+  if (node.type === "text") return node.value || "";
+  return (node.children || []).map(hastText).join("");
+}
+
+// Skills-match documents are a 2-column markdown table ("What the posting
+// asks for" | "Matt's match"). The original app rendered each row as a
+// card; keep that look. Any other table falls back to a styled HTML table.
+function MdTable({ node }) {
+  const rows = [];
+  const walk = (n) => {
+    if (!n) return;
+    if (n.tagName === "tr") {
+      const cells = (n.children || [])
+        .filter((c) => c.tagName === "td" || c.tagName === "th")
+        .map(hastText);
+      rows.push(cells);
+      return;
+    }
+    (n.children || []).forEach(walk);
+  };
+  walk(node);
+  const header = rows[0] || [];
+  const isMatchTable =
+    header.length === 2 && /match/i.test(header[1] || "") && rows.length > 1;
+  if (isMatchTable) {
+    return (
+      <div className="match-cards">
+        {rows.slice(1).map((cells, i) => (
+          <div className="match-card" key={i}>
+            <p className="match-req">{cells[0]}</p>
+            <p className="match-body">
+              <span className="match-label">{header[1]}:</span> {cells[1]}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <table className="md-table">
+      <tbody>
+        {rows.map((cells, i) => (
+          <tr key={i}>
+            {cells.map((c, j) =>
+              i === 0 ? <th key={j}>{c}</th> : <td key={j}>{c}</td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+const MD_COMPONENTS = { table: MdTable };
 
 function DocViewer({ job, openDoc, setOpenDoc }) {
   const docs = job.documents || [];
@@ -58,19 +132,19 @@ function DocViewer({ job, openDoc, setOpenDoc }) {
         ))}
       </div>
       <div className="doc-pane">
-        <div className="doc-pane-head">
-          <span className="doc-pane-title">
-            {selected.kind || selected.label}
-            {job.company ? ` — ${job.title}, ${job.company}` : ""}
-          </span>
-          {selected.url && (
+        {selected.url && (
+          <div className="doc-pane-head">
             <a href={selected.url} target="_blank" rel="noopener noreferrer">
               Open in Drive ↗
             </a>
-          )}
-        </div>
+          </div>
+        )}
         {selected.content ? (
-          <div className="doc-content">{selected.content}</div>
+          <div className="doc-content md">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+              {selected.content}
+            </ReactMarkdown>
+          </div>
         ) : (
           <p className="no-detail">
             This file lives in Drive — use “Open in Drive ↗” above to view or
@@ -399,13 +473,18 @@ export default function JobsPage() {
                   ? "Apply requested ✓"
                   : "📩 Send to Everest to apply"}
               </button>
-              {requested && acked && (
-                <span className="ack-note">Everest has seen this request</span>
-              )}
-              {requested && !acked && (
-                <span className="ack-note">Waiting for Everest to pick this up</span>
-              )}
             </div>
+
+            {requested && (
+              <div className="sent-block">
+                <div className="sent-bar">✓ Sent to Everest</div>
+                <p className="sent-note">
+                  {acked
+                    ? "Everest has picked this up — the application package lands in the Developer chat."
+                    : `Sent ${fmtDateTime(job.applyRequestedAt)} — Everest will pick this up in chat. The job's status hasn't changed.`}
+                </p>
+              </div>
+            )}
 
             {Array.isArray(job.documents) && job.documents.length > 0 && (
               <>
@@ -439,17 +518,21 @@ export default function JobsPage() {
                     <p>{job.description}</p>
                   </>
                 )}
-                {job.companyAbout && (
-                  <>
-                    <h4>About the company</h4>
-                    <p>{job.companyAbout}</p>
-                  </>
-                )}
-                {job.whyFit && (
-                  <>
-                    <h4>Why it fits</h4>
-                    <p>{job.whyFit}</p>
-                  </>
+                {(job.companyAbout || job.whyFit) && (
+                  <div className="about-card">
+                    {job.companyAbout && (
+                      <>
+                        <h4>About the company</h4>
+                        <p>{job.companyAbout}</p>
+                      </>
+                    )}
+                    {job.whyFit && (
+                      <p className="whyfit">
+                        <span className="why-label">Why it fits:</span>{" "}
+                        {job.whyFit}
+                      </p>
+                    )}
+                  </div>
                 )}
                 {Array.isArray(job.documents) && job.documents.length > 0 && (
                   <DocViewer job={job} openDoc={openDoc} setOpenDoc={setOpenDoc} />
