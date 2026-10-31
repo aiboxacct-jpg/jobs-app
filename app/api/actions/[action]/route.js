@@ -160,15 +160,34 @@ async function getJobOrThrow(db, id) {
   return data;
 }
 
+// Several callers (the cron feeds and the apply watcher) identify a job by
+// its posting URL rather than its numeric id. Resolve either shape.
+async function resolveJob(db, body) {
+  if (body.id !== undefined && body.id !== null) {
+    return getJobOrThrow(db, body.id);
+  }
+  if (body.url) {
+    const { data, error } = await db
+      .from("jobs")
+      .select("*")
+      .eq("url", body.url)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error(`no job with url ${body.url}`);
+    return data;
+  }
+  throw new Error("an id or url is required");
+}
+
 async function updateJob(db, body) {
-  const { id, ...fields } = body;
-  if (!id) throw new Error("updateJob requires id");
+  const { id, url, ...fields } = body;
+  const row = await resolveJob(db, body);
   const cols = toColumns(fields, { partial: true });
   delete cols.url;
   const { data, error } = await db
     .from("jobs")
     .update(cols)
-    .eq("id", id)
+    .eq("id", row.id)
     .select("*")
     .single();
   if (error) throw error;
@@ -176,8 +195,9 @@ async function updateJob(db, body) {
 }
 
 async function setStatus(db, body) {
-  const { id, status } = body;
-  if (!id || !status) throw new Error("setStatus requires id and status");
+  const { status } = body;
+  if (!status) throw new Error("setStatus requires a status");
+  const { id } = await resolveJob(db, body);
   const cols = { status };
   if (status === "Applied") {
     // Stamp the applied date (America/Los_Angeles today) unless one is given.
@@ -200,7 +220,7 @@ async function setStatus(db, body) {
 }
 
 async function requestApply(db, body) {
-  const row = await getJobOrThrow(db, body.id);
+  const row = await resolveJob(db, body);
   if (!row.apply_requested) {
     const { data, error } = await db
       .from("jobs")
@@ -231,10 +251,11 @@ async function listApplyRequests(db) {
 }
 
 async function ackApplyRequest(db, body) {
+  const row = await resolveJob(db, body);
   const { data, error } = await db
     .from("jobs")
     .update({ apply_acknowledged: true })
-    .eq("id", body.id)
+    .eq("id", row.id)
     .select("*")
     .single();
   if (error) throw error;
@@ -255,7 +276,7 @@ async function appendDocuments(db, row, documents) {
 }
 
 async function attachDocuments(db, body) {
-  const row = await getJobOrThrow(db, body.id);
+  const row = await resolveJob(db, body);
   return appendDocuments(db, row, body.documents);
 }
 
@@ -272,7 +293,7 @@ async function attachPackageDocuments(db, body) {
 }
 
 async function setDocumentContent(db, body) {
-  const row = await getJobOrThrow(db, body.id);
+  const row = await resolveJob(db, body);
   const docs = (Array.isArray(row.documents) ? row.documents : []).map((d) =>
     d && d.label === body.label ? { ...d, content: body.content ?? null } : d
   );
@@ -287,7 +308,7 @@ async function setDocumentContent(db, body) {
 }
 
 async function removeDocument(db, body) {
-  const row = await getJobOrThrow(db, body.id);
+  const row = await resolveJob(db, body);
   const docs = (Array.isArray(row.documents) ? row.documents : []).filter(
     (d) => !(d && d.label === body.label)
   );
