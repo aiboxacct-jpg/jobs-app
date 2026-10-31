@@ -26,6 +26,8 @@ const FIELD_MAP = {
   applyRequestedAt: "apply_requested_at",
   applyAcknowledged: "apply_acknowledged",
   documents: "documents",
+  matchScore: "match_score",
+  matchReasons: "match_reasons",
 };
 
 const DATE_FIELDS = new Set(["postedDate", "foundDate", "appliedDate"]);

@@ -22,6 +22,8 @@ create table if not exists public.jobs (
   apply_requested_at timestamptz,
   apply_acknowledged boolean not null default false,
   documents jsonb not null default '[]'::jsonb,
+  match_score int,
+  match_reasons text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

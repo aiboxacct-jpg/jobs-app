@@ -120,6 +120,10 @@ button { font: inherit; cursor: pointer; }
   border-radius: 6px; padding: 0 7px; font-size: 12px; font-weight: 600; color: var(--muted);
 }
 .salary { font-weight: 600; color: var(--ink); }
+.match-badge {
+  background: var(--sage-soft); color: var(--sage); border-radius: 999px;
+  padding: 1px 9px; font-size: 12px; font-weight: 700;
+}
 
 /* Expanded detail */
 .detail { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }

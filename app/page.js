@@ -96,6 +96,13 @@ export default function JobsPage() {
       }
       return true;
     });
+    if (sort === "match") {
+      list = [...list].sort((a, b) => {
+        const sa = a.matchScore ?? -1;
+        const sb = b.matchScore ?? -1;
+        return sb - sa;
+      });
+    }
     if (sort === "pay-desc" || sort === "pay-asc") {
       const dir = sort === "pay-desc" ? -1 : 1;
       list = [...list].sort((a, b) => {
@@ -227,6 +234,7 @@ export default function JobsPage() {
           aria-label="Sort"
         >
           <option value="newest">Newest first</option>
+          <option value="match">Best match</option>
           <option value="pay-desc">Pay: high → low</option>
           <option value="pay-asc">Pay: low → high</option>
         </select>
@@ -263,6 +271,14 @@ export default function JobsPage() {
               {job.source && <span>via {job.source}</span>}
               {job.status === "Applied" && job.appliedDate && (
                 <span>Applied {fmtDate(job.appliedDate)}</span>
+              )}
+              {job.matchScore != null && (
+                <span
+                  className="match-badge"
+                  title={job.matchReasons || undefined}
+                >
+                  {job.matchScore}% match
+                </span>
               )}
             </div>
 
