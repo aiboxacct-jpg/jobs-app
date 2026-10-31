@@ -137,6 +137,13 @@ button { font: inherit; cursor: pointer; }
 }
 .detail .posting-link a:hover { background: var(--accent-dark); text-decoration: none; }
 .detail .no-detail { color: var(--muted); font-size: 14px; }
+.pkg-row { margin-top: 12px; }
+.pkg-pill {
+  background: var(--sage-soft); color: var(--sage); border: none;
+  border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 600;
+}
+.pkg-pill:hover { filter: brightness(0.97); }
+.pkg-panel { text-align: left; }
 .docs-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 }

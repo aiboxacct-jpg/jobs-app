@@ -27,6 +27,61 @@ function fmtDate(d) {
   return d ? String(d).slice(0, 10) : "";
 }
 
+function DocViewer({ job, openDoc, setOpenDoc }) {
+  const docs = job.documents || [];
+  if (!docs.length) return null;
+  const selected =
+    docs.find((d) => d.label === openDoc) ||
+    docs.find((d) => d.content) ||
+    docs[0];
+  return (
+    <>
+      <div className="docs-head">
+        <h4>Application documents</h4>
+        <a
+          href="https://drive.google.com/drive/folders/15-Z16BkdDGcnYWLQAeDkYKa0oK0cDeps"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Drive folder ↗
+        </a>
+      </div>
+      <div className="doc-tabs">
+        {docs.map((doc, i) => (
+          <button
+            key={`${doc.label}-${i}`}
+            className={`doc-tab${doc.label === selected.label ? " active" : ""}`}
+            onClick={() => setOpenDoc(doc.label)}
+          >
+            {doc.label}
+          </button>
+        ))}
+      </div>
+      <div className="doc-pane">
+        <div className="doc-pane-head">
+          <span className="doc-pane-title">
+            {selected.kind || selected.label}
+            {job.company ? ` — ${job.title}, ${job.company}` : ""}
+          </span>
+          {selected.url && (
+            <a href={selected.url} target="_blank" rel="noopener noreferrer">
+              Open in Drive ↗
+            </a>
+          )}
+        </div>
+        {selected.content ? (
+          <div className="doc-content">{selected.content}</div>
+        ) : (
+          <p className="no-detail">
+            This file lives in Drive — use “Open in Drive ↗” above to view or
+            download it.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function JobsPage() {
   const tokenRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -42,6 +97,7 @@ export default function JobsPage() {
   const [sort, setSort] = useState("newest");
   const [expanded, setExpanded] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // selected document label
+  const [pkgOpen, setPkgOpen] = useState(null); // job id with package panel open
   const [busy, setBusy] = useState(null); // `${jobId}:${op}`
 
   const refresh = useCallback(async () => {
@@ -351,6 +407,25 @@ export default function JobsPage() {
               )}
             </div>
 
+            {Array.isArray(job.documents) && job.documents.length > 0 && (
+              <>
+                <div className="pkg-row">
+                  <button
+                    className="pkg-pill"
+                    onClick={() => setPkgOpen(pkgOpen === job.id ? null : job.id)}
+                  >
+                    📩 Application package · {job.documents.length} docs —{" "}
+                    {pkgOpen === job.id ? "hide" : "view"}
+                  </button>
+                </div>
+                {pkgOpen === job.id && (
+                  <div className="detail pkg-panel">
+                    <DocViewer job={job} openDoc={openDoc} setOpenDoc={setOpenDoc} />
+                  </div>
+                )}
+              </>
+            )}
+
             {isOpen && (
               <div className="detail">
                 <p className="posting-link">
@@ -377,64 +452,7 @@ export default function JobsPage() {
                   </>
                 )}
                 {Array.isArray(job.documents) && job.documents.length > 0 && (
-                  <>
-                    <div className="docs-head">
-                      <h4>Application documents</h4>
-                      <a
-                        href="https://drive.google.com/drive/folders/15-Z16BkdDGcnYWLQAeDkYKa0oK0cDeps"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Drive folder ↗
-                      </a>
-                    </div>
-                    {(() => {
-                      const docs = job.documents;
-                      const selected =
-                        docs.find((d) => d.label === openDoc) ||
-                        docs.find((d) => d.content) ||
-                        docs[0];
-                      return (
-                        <>
-                          <div className="doc-tabs">
-                            {docs.map((doc, i) => (
-                              <button
-                                key={`${doc.label}-${i}`}
-                                className={`doc-tab${doc.label === selected.label ? " active" : ""}`}
-                                onClick={() => setOpenDoc(doc.label)}
-                              >
-                                {doc.label}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="doc-pane">
-                            <div className="doc-pane-head">
-                              <span className="doc-pane-title">
-                                {selected.kind || selected.label}
-                                {job.company ? ` — ${job.title}, ${job.company}` : ""}
-                              </span>
-                              {selected.url && (
-                                <a
-                                  href={selected.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Open in Drive ↗
-                                </a>
-                              )}
-                            </div>
-                            {selected.content ? (
-                              <div className="doc-content">{selected.content}</div>
-                            ) : (
-                              <p className="no-detail">
-                                This file lives in Drive — use “Open in Drive ↗” above to view or download it.
-                              </p>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </>
+                  <DocViewer job={job} openDoc={openDoc} setOpenDoc={setOpenDoc} />
                 )}
                 {!job.description &&
                   !job.companyAbout &&
