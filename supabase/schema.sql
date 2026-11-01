@@ -24,6 +24,7 @@ create table if not exists public.jobs (
   documents jsonb not null default '[]'::jsonb,
   match_score int,
   match_reasons text,
+  apply_later boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -50,3 +51,8 @@ drop trigger if exists jobs_touch on public.jobs;
 create trigger jobs_touch
   before update on public.jobs
   for each row execute function public.jobs_touch_updated_at();
+
+-- Migration for the existing database (added 2026-11-01, "Apply later"
+-- card highlight). Run once in the SQL editor:
+--   alter table public.jobs
+--     add column if not exists apply_later boolean not null default false;

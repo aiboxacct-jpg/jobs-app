@@ -207,10 +207,18 @@ export default function JobsPage() {
     [jobs]
   );
 
+  const applyLaterCount = useMemo(
+    () => jobs.filter((j) => j.applyLater).length,
+    [jobs]
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = jobs.filter((j) => {
-      if (statusFilter === "Active") {
+      if (statusFilter === "ApplyLater") {
+        // Highlight view: every flagged job, whatever its status.
+        if (!j.applyLater) return false;
+      } else if (statusFilter === "Active") {
         // Main list: active jobs only. Skipped/Expired live under their
         // own tabs and leave this list the moment they're marked.
         if (j.status === "Skipped" || j.status === "Expired") return false;
@@ -270,6 +278,14 @@ export default function JobsPage() {
       callAction(tokenRef.current, "requestApply", { id: job.id })
     );
 
+  const toggleApplyLater = (job) =>
+    mutate(job, "later", () =>
+      callAction(tokenRef.current, "updateJob", {
+        id: job.id,
+        applyLater: !job.applyLater,
+      })
+    );
+
   async function signOut() {
     await getBrowserClient().auth.signOut();
     window.location.replace("/login");
@@ -299,19 +315,21 @@ export default function JobsPage() {
       </header>
 
       <div className="filters">
-        {["Active", "All", ...STATUSES].map((s) => (
+        {["Active", "All", "ApplyLater", ...STATUSES].map((s) => (
           <button
             key={s}
             className={`chip${statusFilter === s ? " active" : ""}`}
             onClick={() => setStatusFilter(s)}
           >
-            {s}
+            {s === "ApplyLater" ? "Apply later" : s}
             <span className="n">
               {s === "All"
                 ? counts.total || 0
                 : s === "Active"
                   ? (counts.New || 0) + (counts.Saved || 0) + (counts.Applied || 0)
-                  : counts[s] || 0}
+                  : s === "ApplyLater"
+                    ? applyLaterCount
+                    : counts[s] || 0}
             </span>
           </button>
         ))}
@@ -380,13 +398,17 @@ export default function JobsPage() {
         const requested = !!job.applyRequested;
         const acked = !!job.applyAcknowledged;
         return (
-          <article className="job-card" key={job.id}>
+          <article
+            className={`job-card${job.applyLater ? " apply-later" : ""}`}
+            key={job.id}
+          >
             <div className="top">
               <h2>
                 <a href={job.url} target="_blank" rel="noopener noreferrer">
                   {job.title || "(untitled)"}
                 </a>
               </h2>
+              {job.applyLater && <span className="later-pill">Apply later</span>}
               <span className={`pill ${job.status}`}>{job.status}</span>
             </div>
             <div className="meta">
@@ -418,6 +440,13 @@ export default function JobsPage() {
                 onClick={() => setExpanded(isOpen ? null : job.id)}
               >
                 {isOpen ? "Hide details ▲" : "Details ▼"}
+              </button>
+              <button
+                className={`btn later${job.applyLater ? " on" : ""}`}
+                disabled={busy !== null}
+                onClick={() => toggleApplyLater(job)}
+              >
+                {job.applyLater ? "✓ Apply later" : "Apply later"}
               </button>
               {job.status !== "Saved" && (
                 <button

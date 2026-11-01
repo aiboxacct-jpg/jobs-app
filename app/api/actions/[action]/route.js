@@ -28,12 +28,15 @@ const FIELD_MAP = {
   documents: "documents",
   matchScore: "match_score",
   matchReasons: "match_reasons",
+  applyLater: "apply_later",
 };
 
 const DATE_FIELDS = new Set(["postedDate", "foundDate", "appliedDate"]);
+const BOOL_FIELDS = new Set(["applyRequested", "applyAcknowledged", "applyLater"]);
 
 function cleanValue(field, value) {
   if (value === undefined) return undefined;
+  if (BOOL_FIELDS.has(field)) return !!value;
   if (DATE_FIELDS.has(field)) {
     if (value === null || value === "") return null;
     return String(value).slice(0, 10);
@@ -48,7 +51,7 @@ function toColumns(job, { partial = false } = {}) {
     if (!(camel in job)) continue;
     const v = cleanValue(camel, job[camel]);
     if (partial && v === undefined) continue;
-    out[snake] = v === undefined ? null : v;
+    out[snake] = v === undefined ? (BOOL_FIELDS.has(camel) ? false : null) : v;
   }
   return out;
 }
@@ -62,6 +65,7 @@ function toCamel(row) {
   out.documents = Array.isArray(row.documents) ? row.documents : [];
   out.applyRequested = !!row.apply_requested;
   out.applyAcknowledged = !!row.apply_acknowledged;
+  out.applyLater = !!row.apply_later;
   return out;
 }
 
@@ -125,7 +129,14 @@ async function addJobs(db, body) {
     if (!existing) {
       const cols = toColumns(job);
       if (!cols.status) cols.status = "New";
-      const { error } = await db.from("jobs").insert(cols);
+      let { error } = await db.from("jobs").insert(cols);
+      if (error && /apply_later/.test(String(error.message || ""))) {
+        // The apply_later column lands via a one-line SQL migration; until
+        // it has run, insert without it so a pending migration can never
+        // break the feeds.
+        delete cols.apply_later;
+        ({ error } = await db.from("jobs").insert(cols));
+      }
       if (error) throw error;
       added++;
     } else {
