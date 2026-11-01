@@ -137,9 +137,24 @@ function splitLabeled(prose) {
     .filter(Boolean);
 }
 
+// Feed-written descriptions sometimes open with a meta lead sentence
+// ("… published on Worqstrap Nov 1, 2026 and verified live the same
+// morning.") that just restates the tile. Stored descriptions were
+// cleaned in bulk on 2026-11-01; this strips the same lead at render
+// for any straggler, but only when real content follows it.
+function stripVerifiedLead(text) {
+  const t = String(text || "");
+  const i = t.indexOf("verified live");
+  if (i === -1 || i > 220) return t;
+  const dot = t.indexOf(".", i);
+  if (dot === -1) return t;
+  const rest = t.slice(dot + 1).replace(/^\s+/, "");
+  return rest.length >= 30 ? rest : t;
+}
+
 function structureText(text) {
   const blocks = [];
-  for (const para of String(text || "").split(/\n\s*\n/)) {
+  for (const para of stripVerifiedLead(text).split(/\n\s*\n/)) {
     const lines = para
       .split(/\n/)
       .map((l) => l.trim())
