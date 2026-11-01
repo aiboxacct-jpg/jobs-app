@@ -159,8 +159,9 @@ button { font: inherit; cursor: pointer; }
 .detail .desc-head {
   font-size: 14px; font-weight: 700; color: var(--ink); margin: 12px 0 4px;
 }
-.detail .desc-list { margin: 4px 0 10px 20px; font-size: 14.5px; color: var(--ink); }
-.detail .desc-list li { margin-bottom: 4px; }
+.detail .desc-section { margin-bottom: 12px; }
+.detail .desc-list { margin: 4px 0 10px 4px; padding-left: 20px; list-style: disc; font-size: 14.5px; color: var(--ink); }
+.detail .desc-list li { margin-bottom: 4px; line-height: 1.5; }
 .pkg-row { margin-top: 12px; }
 .pkg-pill {
   background: var(--sage-soft); color: var(--sage); border: none;

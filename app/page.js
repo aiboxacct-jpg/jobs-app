@@ -102,40 +102,13 @@ function MdTable({ node }) {
 const MD_COMPONENTS = { table: MdTable };
 
 // ---------------------------------------------------------------------------
-// Plain-text descriptions (feed-written summaries, third-party captures)
-// arrive as one dense block. Structure them for reading: paragraphs on
-// blank lines, bullet lines as lists, short standalone lines as subheads,
-// and labeled sections ("Requirements:", "Compensation:", …) broken out
-// with a bold label. Deterministic — it never rewrites the words.
+// Job descriptions render in the grouped format Matt approved for the
+// original app: fragments grouped under "What the role needs / What they
+// want / The pitch / Benefits / Good to know", bullets instead of one wall
+// of text. Display only — the stored text is never changed. Grouping is
+// deterministic: sentences (and slash-separated fragments) are classified
+// by cue words, keeping their original wording and order within a section.
 // ---------------------------------------------------------------------------
-const SECTION_LABELS = [
-  "Requirements",
-  "Compensation",
-  "Benefits",
-  "Qualifications",
-  "Responsibilities",
-  "Salary",
-  "Perks",
-];
-
-function splitLabeled(prose) {
-  const alt = SECTION_LABELS.join("|");
-  let marked = prose.replace(
-    new RegExp(`(\\.\\s+)(${alt}):\\s+`, "g"),
-    "$1\u0001$2\u0002"
-  );
-  marked = marked.replace(new RegExp(`^(${alt}):\\s+`), "\u0001$1\u0002");
-  return marked
-    .split("\u0001")
-    .map((chunk) => {
-      const t = chunk.trim();
-      if (!t) return null;
-      const i = t.indexOf("\u0002");
-      if (i > 0) return { label: t.slice(0, i), text: t.slice(i + 1).trim() };
-      return { text: t };
-    })
-    .filter(Boolean);
-}
 
 // Feed-written descriptions sometimes open with a meta lead sentence
 // ("… published on Worqstrap Nov 1, 2026 and verified live the same
@@ -143,92 +116,259 @@ function splitLabeled(prose) {
 // cleaned in bulk on 2026-11-01; this strips the same lead at render
 // for any straggler, but only when real content follows it.
 function stripVerifiedLead(text) {
-  const t = String(text || "");
+  let t = String(text || "");
   const i = t.indexOf("verified live");
-  if (i === -1 || i > 220) return t;
-  const dot = t.indexOf(".", i);
-  if (dot === -1) return t;
-  const rest = t.slice(dot + 1).replace(/^\s+/, "");
-  return rest.length >= 30 ? rest : t;
+  if (i !== -1 && i <= 220) {
+    const dot = t.indexOf(".", i);
+    if (dot !== -1) {
+      const rest = t.slice(dot + 1).replace(/^\s+/, "");
+      if (rest.length >= 30) t = rest;
+    }
+  }
+  // Older captures also carry posting-meta as trailing clauses or whole
+  // trailing sentences ("… and verified live in the signed-in JobRight
+  // session." / "Published 22 Oct 2026 on Jobicy, verified live."). Cut
+  // those too — display only. Single-line descriptions only, so headed
+  // multi-line captures keep their line structure.
+  if (!/\n/.test(t) && /verified live/i.test(t)) {
+    const kept = [];
+    for (let s of splitSentences(t)) {
+      if (
+        /^(published|posted|surfaced|listed|spotted)\b/i.test(s) &&
+        /(verified live|before (the )?.{0,24}scan|on (jobicy|linkedin|ziprecruiter|indeed|jobright|worqstrap|greenhouse))/i.test(
+          s
+        )
+      ) {
+        continue;
+      }
+      s = s.replace(
+        /\s*[,;]?\s*(and\s+)?(detail-)?verified live\b.*$/i,
+        ""
+      );
+      s = s.trim();
+      if (s.length < 3) continue;
+      if (!/[.!?…]$/.test(s)) s += ".";
+      kept.push(s);
+    }
+    if (kept.length) t = kept.join(" ");
+  }
+  return t;
 }
 
-function structureText(text) {
-  const blocks = [];
-  for (const para of stripVerifiedLead(text).split(/\n\s*\n/)) {
-    const lines = para
-      .split(/\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (!lines.length) continue;
-    if (lines.length === 1) {
-      for (const seg of splitLabeled(lines[0])) blocks.push({ type: "p", ...seg });
-      continue;
-    }
-    let prose = [];
-    let bullets = [];
-    const flushProse = () => {
-      if (!prose.length) return;
-      for (const seg of splitLabeled(prose.join(" ")))
-        blocks.push({ type: "p", ...seg });
-      prose = [];
-    };
-    const flushBullets = () => {
-      if (!bullets.length) return;
-      blocks.push({ type: "list", items: bullets });
-      bullets = [];
-    };
-    for (const line of lines) {
-      if (/^[•\-–*]\s+/.test(line)) {
-        flushProse();
-        bullets.push(line.replace(/^[•\-–*]\s+/, ""));
-      } else if (
-        line.length <= 70 &&
-        !/[.,;:]$/.test(line) &&
-        (prose.length || bullets.length || blocks.length)
-      ) {
-        flushProse();
-        flushBullets();
-        blocks.push({ type: "head", text: line });
-      } else {
-        flushBullets();
-        prose.push(line);
+const DESC_SECTION_ORDER = [
+  "What the role needs",
+  "What they want",
+  "The pitch",
+  "Benefits",
+  "Good to know",
+];
+
+function classifyFragment(fragment) {
+  const t = fragment.toLowerCase();
+  if (
+    /fraud|impersonat|equal opportunity|without regard to|never ask (candidates|applicants)|it is our policy|background check|drug (screen|test)|work authorization|authorized to work|sponsorship|hiring decisions are/.test(
+      t
+    )
+  ) {
+    return "Good to know";
+  }
+  if (
+    /401\(k\)|health benefits|paid holidays|paid time off|generous pto|comprehensive health|health insurance|learning and development|we offer (our )?employees|benefits (include|package|program)|\bbonus(es)?\b|stipend|\bsalary\b|\bcompensation\b|pay band/.test(
+      t
+    )
+  ) {
+    return "Benefits";
+  }
+  if (
+    /apply today|come be a part|join (our|the) team|join us|we want to talk to you|ready to .+\?|be part of|our mission|we('re| are) building/.test(
+      t
+    )
+  ) {
+    return "The pitch";
+  }
+  if (
+    /\basks\b|\brequires?\b|experience\b|preferred|proficien|track record of|knowledge of|\bskills?\b|ability to|someone who|you bring|\bdegree\b|certif|familiar|\byears\b/.test(
+      t
+    )
+  ) {
+    return "What they want";
+  }
+  return "What the role needs";
+}
+
+function mapHeading(raw) {
+  const t = raw.toLowerCase();
+  if (/responsibilit|duties|what you('ll| will) do|the role|day.to.day/.test(t)) {
+    return "What the role needs";
+  }
+  if (
+    /requirement|qualification|looking for|what you bring|skills|experience/.test(t)
+  ) {
+    return "What they want";
+  }
+  if (/benefit|perks|compensation|salary|what we offer/.test(t)) return "Benefits";
+  if (/about|overview|who we are|the pitch/.test(t)) return "The pitch";
+  return raw;
+}
+
+const SENTENCE_ABBREV =
+  /\b(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|Inc|Corp|Ltd|U\.S|U\.K|e\.g|i\.e|Mr|Dr|Sr|Jr|vs)\./g;
+
+function splitSentences(text) {
+  const guarded = text
+    .replace(/(\d)\.(\d)/g, "$1\u0001$2")
+    .replace(SENTENCE_ABBREV, (m) => m.slice(0, -1) + "\u0001");
+  return guarded
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.replace(/\u0001/g, ".").trim())
+    .filter(Boolean);
+}
+
+function splitList(body, mode) {
+  let parts = body.split(/;\s*/);
+  if (mode === "list") parts = parts.flatMap((p) => p.split(/,\s*/));
+  parts = parts.flatMap((p) => p.split(/\s+\/\s+/));
+  return parts
+    .map((s) => s.trim().replace(/[.;]\s*$/, ""))
+    .filter((s) => s.length > 1);
+}
+
+// Lead-in labels inside a sentence ("Skills: …", "Salary in description:
+// …") pin the fragment to a section; list-like bodies become one bullet
+// per item.
+const LABEL_RULES = [
+  {
+    re: /^(skills|requirements?|qualifications|what you bring)(?:\s*[:—–]\s*|\s+-\s+)/i,
+    section: "What they want",
+    split: "list",
+  },
+  {
+    re: /^(responsibilities|duties|what you'll do|what you will do)(?:\s*[:—–]\s*|\s+-\s+)/i,
+    section: "What the role needs",
+    split: "semi",
+  },
+  {
+    re: /^(compensation|salary|pay|benefits|perks)( in description)?(?:\s*[:—–]\s*|\s+-\s+)/i,
+    section: "Benefits",
+    split: "semi",
+  },
+];
+
+function fragmentsOfSentence(sentence) {
+  for (const rule of LABEL_RULES) {
+    const m = sentence.match(rule.re);
+    if (m) {
+      const body = sentence.slice(m[0].length).trim();
+      const parts = splitList(body, rule.split);
+      if (parts.length) {
+        return parts.map((text) => ({ section: rule.section, text }));
       }
     }
-    flushProse();
-    flushBullets();
+  }
+  const slashParts = sentence.split(/\s+\/\s+/);
+  if (slashParts.length >= 3) {
+    return slashParts
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((text) => ({ section: classifyFragment(text), text }));
+  }
+  return [{ section: classifyFragment(sentence), text: sentence }];
+}
+
+function parseDescription(text) {
+  const cleaned = stripVerifiedLead(text).trim();
+  if (!cleaned) return [];
+  const lines = cleaned
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const isHeading = (f) => f.length <= 60 && /:\s*$/.test(f);
+
+  // Descriptions captured with their own heading lines keep that
+  // structure, with headings mapped to the standard names.
+  if (lines.length > 1 && lines.some(isHeading)) {
+    const blocks = [];
+    let current = { kind: "section", heading: null, items: [] };
+    blocks.push(current);
+    for (const line of lines) {
+      if (isHeading(line)) {
+        current = {
+          kind: "section",
+          heading: mapHeading(line.replace(/:\s*$/, "")),
+          items: [],
+        };
+        blocks.push(current);
+      } else if (/^[•\-–*]\s+/.test(line)) {
+        current.items.push(line.replace(/^[•\-–*]\s+/, ""));
+      } else {
+        for (const s of splitSentences(line)) current.items.push(s);
+      }
+    }
+    return blocks.filter((b) => b.items.length > 0);
+  }
+
+  const fragments = [];
+  for (const line of lines) {
+    if (/^[•\-–*]\s+/.test(line)) {
+      const item = line.replace(/^[•\-–*]\s+/, "");
+      fragments.push({ section: classifyFragment(item), text: item });
+      continue;
+    }
+    for (const s of splitSentences(line)) {
+      fragments.push(...fragmentsOfSentence(s));
+    }
+  }
+  if (fragments.length < 2) return [{ kind: "raw", text: cleaned }];
+
+  const grouped = new Map();
+  for (const f of fragments) {
+    if (!grouped.has(f.section)) grouped.set(f.section, []);
+    grouped.get(f.section).push(f.text);
+  }
+  const blocks = [];
+  for (const name of DESC_SECTION_ORDER) {
+    const items = grouped.get(name);
+    if (items && items.length) {
+      blocks.push({ kind: "section", heading: name, items });
+    }
   }
   return blocks;
 }
 
+function displayItem(item) {
+  return item.charAt(0).toUpperCase() + item.slice(1);
+}
+
 function FormattedText({ text }) {
-  const blocks = useMemo(() => structureText(text), [text]);
+  const blocks = useMemo(() => parseDescription(text), [text]);
   return blocks.map((b, i) => {
-    if (b.type === "list") {
-      return (
-        <ul className="desc-list" key={i}>
-          {b.items.map((it, j) => (
-            <li key={j}>{it}</li>
-          ))}
-        </ul>
-      );
-    }
-    if (b.type === "head") {
-      return (
-        <h5 className="desc-head" key={i}>
-          {b.text}
-        </h5>
-      );
+    if (b.kind === "raw") {
+      const lines = b.text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length > 1 && lines.every((l) => /^[•\-–*]\s+/.test(l))) {
+        return (
+          <ul className="desc-list" key={i}>
+            {lines.map((l, j) => (
+              <li key={j}>{l.replace(/^[•\-–*]\s+/, "")}</li>
+            ))}
+          </ul>
+        );
+      }
+      return b.text
+        .split(/\n\s*\n/)
+        .map((p, j) => <p key={j}>{p}</p>);
     }
     return (
-      <p key={i}>
-        {b.label ? (
-          <>
-            <span className="desc-label">{b.label}:</span> {b.text}
-          </>
-        ) : (
-          b.text
-        )}
-      </p>
+      <section className="desc-section" key={i}>
+        {b.heading && <h5 className="desc-head">{b.heading}</h5>}
+        <ul className="desc-list">
+          {b.items.map((item, j) => (
+            <li key={j}>{displayItem(item)}</li>
+          ))}
+        </ul>
+      </section>
     );
   });
 }
