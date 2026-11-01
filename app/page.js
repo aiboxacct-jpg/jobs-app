@@ -556,6 +556,12 @@ export default function JobsPage() {
         return (pa - pb) * dir;
       });
     }
+    // Matt (2026-11-01): Apply later jobs pin to the top of the list,
+    // whatever sort is active; the chosen sort orders each group.
+    list = [
+      ...list.filter((j) => j.applyLater),
+      ...list.filter((j) => !j.applyLater),
+    ];
     return list;
   }, [jobs, statusFilter, sourceFilter, modeFilter, payFilter, easyFilter, localFilter, search, sort]);
 
