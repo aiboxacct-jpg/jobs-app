@@ -434,6 +434,65 @@ function isLocal(job) {
   return LOCAL_RE.test(`${job.location || ""} ${job.company || ""}`);
 }
 
+// The Search Profile panel mirrors the job feeds' instructions exactly
+// (target roles, skills, sources, rules) so Matt can see what is being
+// searched for. Keep in sync with the morning-job-shortlist cron body.
+const SEARCH_PROFILE = {
+  roles: [
+    "AI / agent bots / ChatGPT", "Coordinator", "Administration",
+    "Database management", "Community manager", "Small business support",
+    "University jobs (CSULB, LBCC, USC)", "Email marketing",
+    "Operations coordinator", "Project manager", "Account coordinator",
+    "Lead generation", "Technology roles",
+  ],
+  customer: [
+    "Customer representative", "Customer support specialist",
+    "Customer associate", "Customer care representative",
+    "Customer operations specialist", "Customer success representative",
+    "Customer support agent",
+  ],
+  marketing: [
+    "Marketing specialist", "Digital marketing associate / strategist",
+    "Digital specialist", "Business services manager",
+    "Marketing coordinator", "Marketing manager",
+    "Marketing operations analyst",
+  ],
+  alerts: [
+    "Customer care representative", "Customer representative",
+    "Customer associate", "Customer support specialist",
+    "Marketing specialist", "Customer support agent", "Community manager",
+    "Email marketing specialist",
+  ],
+  skills: [
+    "Salesforce", "MailChimp", "Constant Contact", "Discord", "Telegram",
+    "ChatGPT", "Basecamp", "Newsletters", "Content specialist",
+    "CRM / database work",
+  ],
+  localKeywords: [
+    "Admin", "Coordinator", "Customer service", "Community", "Operations",
+    "Analyst", "Clerical", "Marketing",
+  ],
+  sources: [
+    "LinkedIn (alerts + preferences)", "ZipRecruiter suggestions",
+    "JobRight recommendations", "Indeed", "Google Jobs", "Jobicy",
+    "Worqstrap", "Greenhouse boards", "HiringCafe", "USAJobs",
+    "HigherEdJobs", "Idealist", "JustRemote", "Built In", "Glassdoor",
+    "We Work Remotely", "Working Nomads", "CareerBuilder",
+    "Craigslist (extra scrutiny)",
+    "City halls — Long Beach, Torrance, Carson, Downey, Signal Hill, Gardena, Compton, Huntington Beach, Paramount, Big Bear Lake",
+    "Bear Valley USD (EdJoin)", "Big Bear Google Jobs check",
+    "Employer careers pages",
+  ],
+  rules: [
+    "Remote first: the list defaults to Remote, then Hybrid, then On-site; Easy Apply is boosted within each tier.",
+    "Onsite only in LA / Orange County — except Big Bear (Local), which gets priority.",
+    "Fresh only: posted within 48 hours (daily feed) or 7 days (Friday feed).",
+    "Every link is opened and verified live before a job reaches the app; employer-direct links are preferred.",
+    "App-only mode: no email or chat job reports — the feeds load this app silently. The employer-reply watch still pings on real replies.",
+    "Match scores learn from your Save / Apply / Skip taps, rescored nightly.",
+  ],
+};
+
 export default function JobsPage() {
   const tokenRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -447,6 +506,7 @@ export default function JobsPage() {
   const [payFilter, setPayFilter] = useState("All");
   const [easyFilter, setEasyFilter] = useState(false);
   const [localFilter, setLocalFilter] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("mode");
   const [expanded, setExpanded] = useState(null);
@@ -634,10 +694,54 @@ export default function JobsPage() {
             {STATUSES.map((s) => `${counts[s] || 0} ${s}`).join(" · ")}
           </div>
         </div>
-        <button className="signout" onClick={signOut}>
-          Sign out
-        </button>
+        <div className="head-btns">
+          <button
+            className="signout"
+            onClick={() => setShowProfile(!showProfile)}
+          >
+            {showProfile ? "Hide profile" : "Search Profile"}
+          </button>
+          <button className="signout" onClick={signOut}>
+            Sign out
+          </button>
+        </div>
       </header>
+
+      {showProfile && (
+        <section className="profile-panel">
+          {[
+            ["Target roles", SEARCH_PROFILE.roles],
+            ["Customer-service roles", SEARCH_PROFILE.customer],
+            ["Marketing roles", SEARCH_PROFILE.marketing],
+            ["LinkedIn saved alerts", SEARCH_PROFILE.alerts],
+            ["Key skills matched", SEARCH_PROFILE.skills],
+            ["City-hall & Big Bear filter keywords", SEARCH_PROFILE.localKeywords],
+            ["Sources", SEARCH_PROFILE.sources],
+          ].map(([label, items]) => (
+            <div className="profile-sec" key={label}>
+              <h4>{label}</h4>
+              <div className="tags">
+                {items.map((t) => (
+                  <span key={t}>{t}</span>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="profile-sec">
+            <h4>Rules</h4>
+            <ul className="profile-rules">
+              {SEARCH_PROFILE.rules.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </div>
+          <p className="profile-note">
+            This mirrors the feeds’ instructions exactly — if you want a role
+            added, a keyword changed, or a source dropped, just tell Everest
+            in chat and both will be updated together.
+          </p>
+        </section>
+      )}
 
       <div className="filters">
         {["Active", "All", "ApplyLater", ...STATUSES].map((s) => (
