@@ -78,6 +78,9 @@ button { font: inherit; cursor: pointer; }
 .chip .n { color: var(--muted); font-weight: 500; margin-left: 4px; }
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .chip.active .n { color: var(--accent-soft); }
+.chip.expunge { color: var(--accent); border-color: var(--accent); }
+.chip.danger { background: var(--accent); border-color: var(--accent); color: #fff; }
+.expunge-confirm { display: inline-flex; gap: 8px; }
 .filters select, .filters input[type="search"] {
   border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 10px;
   font-size: 14px; background: var(--surface); color: var(--ink);

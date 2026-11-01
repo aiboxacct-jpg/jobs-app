@@ -335,11 +335,24 @@ async function removeDocument(db, body) {
   return { job: toCamel(data) };
 }
 
+async function deleteExpired(db) {
+  // Permanent delete of every Expired job (Matt's "expunge"). The UI
+  // guards this with a two-click confirm; the action itself is final.
+  const { data, error } = await db
+    .from("jobs")
+    .delete()
+    .eq("status", "Expired")
+    .select("id");
+  if (error) throw error;
+  return { deleted: data.length };
+}
+
 const ACTIONS = {
   listJobs,
   addJobs,
   updateJob,
   setStatus,
+  deleteExpired,
   requestApply,
   listApplyRequests,
   ackApplyRequest,

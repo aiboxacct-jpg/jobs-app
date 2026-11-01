@@ -172,6 +172,7 @@ export default function JobsPage() {
   const [expanded, setExpanded] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // selected document label
   const [pkgOpen, setPkgOpen] = useState(null); // job id with package panel open
+  const [confirmExpunge, setConfirmExpunge] = useState(false);
   const [busy, setBusy] = useState(null); // `${jobId}:${op}`
 
   const refresh = useCallback(async () => {
@@ -286,6 +287,21 @@ export default function JobsPage() {
       })
     );
 
+  async function expungeExpired() {
+    setBusy("expunge");
+    setError("");
+    try {
+      await callAction(tokenRef.current, "deleteExpired", {});
+      setConfirmExpunge(false);
+      if (statusFilter === "Expired") setStatusFilter("Active");
+      await refresh();
+    } catch (err) {
+      setError(String(err?.message || err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function signOut() {
     await getBrowserClient().auth.signOut();
     window.location.replace("/login");
@@ -333,6 +349,29 @@ export default function JobsPage() {
             </span>
           </button>
         ))}
+        {(counts.Expired || 0) > 0 &&
+          (confirmExpunge ? (
+            <span className="expunge-confirm">
+              <button
+                className="chip danger"
+                disabled={busy !== null}
+                onClick={expungeExpired}
+              >
+                Really delete {counts.Expired} expired?
+              </button>
+              <button className="chip" onClick={() => setConfirmExpunge(false)}>
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              className="chip expunge"
+              onClick={() => setConfirmExpunge(true)}
+            >
+              Expunge expired
+              <span className="n">{counts.Expired}</span>
+            </button>
+          ))}
       </div>
       <div className="filters">
         <select
