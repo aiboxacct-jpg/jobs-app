@@ -25,6 +25,7 @@ create table if not exists public.jobs (
   match_score int,
   match_reasons text,
   apply_later boolean not null default false,
+  easy_apply boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -56,3 +57,7 @@ create trigger jobs_touch
 -- card highlight). Run once in the SQL editor:
 --   alter table public.jobs
 --     add column if not exists apply_later boolean not null default false;
+--
+-- Migration (added 2026-11-01, Easy Apply flag). Run once in the SQL editor:
+--   alter table public.jobs
+--     add column if not exists easy_apply boolean not null default false;

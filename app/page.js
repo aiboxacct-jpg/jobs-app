@@ -101,6 +101,123 @@ function MdTable({ node }) {
 
 const MD_COMPONENTS = { table: MdTable };
 
+// ---------------------------------------------------------------------------
+// Plain-text descriptions (feed-written summaries, third-party captures)
+// arrive as one dense block. Structure them for reading: paragraphs on
+// blank lines, bullet lines as lists, short standalone lines as subheads,
+// and labeled sections ("Requirements:", "Compensation:", …) broken out
+// with a bold label. Deterministic — it never rewrites the words.
+// ---------------------------------------------------------------------------
+const SECTION_LABELS = [
+  "Requirements",
+  "Compensation",
+  "Benefits",
+  "Qualifications",
+  "Responsibilities",
+  "Salary",
+  "Perks",
+];
+
+function splitLabeled(prose) {
+  const alt = SECTION_LABELS.join("|");
+  let marked = prose.replace(
+    new RegExp(`(\\.\\s+)(${alt}):\\s+`, "g"),
+    "$1\u0001$2\u0002"
+  );
+  marked = marked.replace(new RegExp(`^(${alt}):\\s+`), "\u0001$1\u0002");
+  return marked
+    .split("\u0001")
+    .map((chunk) => {
+      const t = chunk.trim();
+      if (!t) return null;
+      const i = t.indexOf("\u0002");
+      if (i > 0) return { label: t.slice(0, i), text: t.slice(i + 1).trim() };
+      return { text: t };
+    })
+    .filter(Boolean);
+}
+
+function structureText(text) {
+  const blocks = [];
+  for (const para of String(text || "").split(/\n\s*\n/)) {
+    const lines = para
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!lines.length) continue;
+    if (lines.length === 1) {
+      for (const seg of splitLabeled(lines[0])) blocks.push({ type: "p", ...seg });
+      continue;
+    }
+    let prose = [];
+    let bullets = [];
+    const flushProse = () => {
+      if (!prose.length) return;
+      for (const seg of splitLabeled(prose.join(" ")))
+        blocks.push({ type: "p", ...seg });
+      prose = [];
+    };
+    const flushBullets = () => {
+      if (!bullets.length) return;
+      blocks.push({ type: "list", items: bullets });
+      bullets = [];
+    };
+    for (const line of lines) {
+      if (/^[•\-–*]\s+/.test(line)) {
+        flushProse();
+        bullets.push(line.replace(/^[•\-–*]\s+/, ""));
+      } else if (
+        line.length <= 70 &&
+        !/[.,;:]$/.test(line) &&
+        (prose.length || bullets.length || blocks.length)
+      ) {
+        flushProse();
+        flushBullets();
+        blocks.push({ type: "head", text: line });
+      } else {
+        flushBullets();
+        prose.push(line);
+      }
+    }
+    flushProse();
+    flushBullets();
+  }
+  return blocks;
+}
+
+function FormattedText({ text }) {
+  const blocks = useMemo(() => structureText(text), [text]);
+  return blocks.map((b, i) => {
+    if (b.type === "list") {
+      return (
+        <ul className="desc-list" key={i}>
+          {b.items.map((it, j) => (
+            <li key={j}>{it}</li>
+          ))}
+        </ul>
+      );
+    }
+    if (b.type === "head") {
+      return (
+        <h5 className="desc-head" key={i}>
+          {b.text}
+        </h5>
+      );
+    }
+    return (
+      <p key={i}>
+        {b.label ? (
+          <>
+            <span className="desc-label">{b.label}:</span> {b.text}
+          </>
+        ) : (
+          b.text
+        )}
+      </p>
+    );
+  });
+}
+
 function DocViewer({ job, openDoc, setOpenDoc }) {
   const docs = job.documents || [];
   if (!docs.length) return null;
@@ -167,6 +284,7 @@ export default function JobsPage() {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [modeFilter, setModeFilter] = useState("All");
   const [payFilter, setPayFilter] = useState("All");
+  const [easyFilter, setEasyFilter] = useState(false);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [expanded, setExpanded] = useState(null);
@@ -213,6 +331,11 @@ export default function JobsPage() {
     [jobs]
   );
 
+  const easyCount = useMemo(
+    () => jobs.filter((j) => j.easyApply).length,
+    [jobs]
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = jobs.filter((j) => {
@@ -229,6 +352,7 @@ export default function JobsPage() {
       if (sourceFilter !== "All" && j.source !== sourceFilter) return false;
       if (modeFilter !== "All" && j.workMode !== modeFilter) return false;
       if (payFilter !== "All" && payType(j.salary) !== payFilter) return false;
+      if (easyFilter && !j.easyApply) return false;
       if (q) {
         const hay = `${j.title || ""} ${j.company || ""} ${j.location || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -254,7 +378,7 @@ export default function JobsPage() {
       });
     }
     return list;
-  }, [jobs, statusFilter, sourceFilter, modeFilter, payFilter, search, sort]);
+  }, [jobs, statusFilter, sourceFilter, modeFilter, payFilter, easyFilter, search, sort]);
 
   async function mutate(job, op, fn) {
     setBusy(`${job.id}:${op}`);
@@ -408,6 +532,14 @@ export default function JobsPage() {
           <option value="Yearly">Yearly</option>
           <option value="None">No pay listed</option>
         </select>
+        <button
+          className={`chip${easyFilter ? " active" : ""}`}
+          onClick={() => setEasyFilter(!easyFilter)}
+          title="Show only jobs with one-click Easy Apply"
+        >
+          Easy Apply
+          <span className="n">{easyCount}</span>
+        </button>
         <input
           type="search"
           placeholder="Search title, company, location…"
@@ -453,7 +585,8 @@ export default function JobsPage() {
             <div className="meta">
               <span className="company">{job.company}</span>
               {job.location ? <> · {job.location}</> : null}{" "}
-              {job.workMode && <span className="badge">{job.workMode}</span>}
+              {job.workMode && <span className="badge">{job.workMode}</span>}{" "}
+              {job.easyApply && <span className="badge easy">Easy Apply</span>}
             </div>
             <div className="meta2">
               {job.salary && <span className="salary">{job.salary}</span>}
@@ -583,7 +716,7 @@ export default function JobsPage() {
                 {job.description && (
                   <>
                     <h4>Description</h4>
-                    <p>{job.description}</p>
+                    <FormattedText text={job.description} />
                   </>
                 )}
                 {(job.companyAbout || job.whyFit) && (

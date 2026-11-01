@@ -29,10 +29,11 @@ const FIELD_MAP = {
   matchScore: "match_score",
   matchReasons: "match_reasons",
   applyLater: "apply_later",
+  easyApply: "easy_apply",
 };
 
 const DATE_FIELDS = new Set(["postedDate", "foundDate", "appliedDate"]);
-const BOOL_FIELDS = new Set(["applyRequested", "applyAcknowledged", "applyLater"]);
+const BOOL_FIELDS = new Set(["applyRequested", "applyAcknowledged", "applyLater", "easyApply"]);
 
 function cleanValue(field, value) {
   if (value === undefined) return undefined;
@@ -66,6 +67,7 @@ function toCamel(row) {
   out.applyRequested = !!row.apply_requested;
   out.applyAcknowledged = !!row.apply_acknowledged;
   out.applyLater = !!row.apply_later;
+  out.easyApply = !!row.easy_apply;
   return out;
 }
 
@@ -130,11 +132,12 @@ async function addJobs(db, body) {
       const cols = toColumns(job);
       if (!cols.status) cols.status = "New";
       let { error } = await db.from("jobs").insert(cols);
-      if (error && /apply_later/.test(String(error.message || ""))) {
-        // The apply_later column lands via a one-line SQL migration; until
-        // it has run, insert without it so a pending migration can never
-        // break the feeds.
+      if (error && /apply_later|easy_apply/.test(String(error.message || ""))) {
+        // Flag columns land via one-line SQL migrations; until they have
+        // run, insert without them so a pending migration can never break
+        // the feeds.
         delete cols.apply_later;
+        delete cols.easy_apply;
         ({ error } = await db.from("jobs").insert(cols));
       }
       if (error) throw error;

@@ -122,6 +122,10 @@ button { font: inherit; cursor: pointer; }
   display: inline-block; background: var(--surface-alt); border: 1px solid var(--line);
   border-radius: 6px; padding: 0 7px; font-size: 12px; font-weight: 600; color: var(--muted);
 }
+.badge.easy {
+  background: var(--accent-soft); color: var(--accent); border-color: transparent;
+  font-weight: 700;
+}
 .salary { font-weight: 600; color: var(--ink); }
 .match-badge {
   background: var(--sage-soft); color: var(--sage); border-radius: 999px;
@@ -151,6 +155,12 @@ button { font: inherit; cursor: pointer; }
 }
 .detail .posting-link a:hover { background: var(--accent-dark); text-decoration: none; }
 .detail .no-detail { color: var(--muted); font-size: 14px; }
+.detail .desc-label { font-weight: 700; color: var(--ink); }
+.detail .desc-head {
+  font-size: 14px; font-weight: 700; color: var(--ink); margin: 12px 0 4px;
+}
+.detail .desc-list { margin: 4px 0 10px 20px; font-size: 14.5px; color: var(--ink); }
+.detail .desc-list li { margin-bottom: 4px; }
 .pkg-row { margin-top: 12px; }
 .pkg-pill {
   background: var(--sage-soft); color: var(--sage); border: none;
