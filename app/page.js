@@ -428,6 +428,12 @@ function DocViewer({ job, openDoc, setOpenDoc }) {
   );
 }
 
+// Big Bear jobs are "Local" — Matt's priority area (2026-11-01).
+const LOCAL_RE = /big bear|92314|92315|sugarloaf|fawnskin/i;
+function isLocal(job) {
+  return LOCAL_RE.test(`${job.location || ""} ${job.company || ""}`);
+}
+
 export default function JobsPage() {
   const tokenRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -440,8 +446,9 @@ export default function JobsPage() {
   const [modeFilter, setModeFilter] = useState("All");
   const [payFilter, setPayFilter] = useState("All");
   const [easyFilter, setEasyFilter] = useState(false);
+  const [localFilter, setLocalFilter] = useState(false);
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [sort, setSort] = useState("mode");
   const [expanded, setExpanded] = useState(null);
   const [openDoc, setOpenDoc] = useState(null); // selected document label
   const [pkgOpen, setPkgOpen] = useState(null); // job id with package panel open
@@ -491,6 +498,8 @@ export default function JobsPage() {
     [jobs]
   );
 
+  const localCount = useMemo(() => jobs.filter((j) => isLocal(j)).length, [jobs]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = jobs.filter((j) => {
@@ -508,17 +517,32 @@ export default function JobsPage() {
       if (modeFilter !== "All" && j.workMode !== modeFilter) return false;
       if (payFilter !== "All" && payType(j.salary) !== payFilter) return false;
       if (easyFilter && !j.easyApply) return false;
+      if (localFilter && !isLocal(j)) return false;
       if (q) {
         const hay = `${j.title || ""} ${j.company || ""} ${j.location || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
+    if (sort === "mode") {
+      // Default view (Matt, 2026-11-01): remote jobs first, then hybrid,
+      // then on-site; newest first inside each tier.
+      const rank = (j) => ({ Remote: 0, Hybrid: 1, "On-site": 2 })[j.workMode] ?? 3;
+      list = [...list].sort((a, b) => {
+        const r = rank(a) - rank(b);
+        if (r !== 0) return r;
+        const fa = a.foundDate || "";
+        const fb = b.foundDate || "";
+        if (fa !== fb) return fb.localeCompare(fa);
+        return (b.id || 0) - (a.id || 0);
+      });
+    }
     if (sort === "match") {
       list = [...list].sort((a, b) => {
         const sa = a.matchScore ?? -1;
         const sb = b.matchScore ?? -1;
-        return sb - sa;
+        if (sb !== sa) return sb - sa;
+        return (isLocal(b) ? 1 : 0) - (isLocal(a) ? 1 : 0);
       });
     }
     if (sort === "pay-desc" || sort === "pay-asc") {
@@ -533,7 +557,7 @@ export default function JobsPage() {
       });
     }
     return list;
-  }, [jobs, statusFilter, sourceFilter, modeFilter, payFilter, easyFilter, search, sort]);
+  }, [jobs, statusFilter, sourceFilter, modeFilter, payFilter, easyFilter, localFilter, search, sort]);
 
   async function mutate(job, op, fn) {
     setBusy(`${job.id}:${op}`);
@@ -695,6 +719,14 @@ export default function JobsPage() {
           Easy Apply
           <span className="n">{easyCount}</span>
         </button>
+        <button
+          className={`chip${localFilter ? " active" : ""}`}
+          onClick={() => setLocalFilter(!localFilter)}
+          title="Show only Big Bear-area jobs (Local)"
+        >
+          Local
+          <span className="n">{localCount}</span>
+        </button>
         <input
           type="search"
           placeholder="Search title, company, location…"
@@ -707,6 +739,7 @@ export default function JobsPage() {
           onChange={(e) => setSort(e.target.value)}
           aria-label="Sort"
         >
+          <option value="mode">Remote first</option>
           <option value="newest">Newest first</option>
           <option value="match">Best match</option>
           <option value="pay-desc">Pay: high → low</option>
@@ -741,7 +774,8 @@ export default function JobsPage() {
               <span className="company">{job.company}</span>
               {job.location ? <> · {job.location}</> : null}{" "}
               {job.workMode && <span className="badge">{job.workMode}</span>}{" "}
-              {job.easyApply && <span className="badge easy">Easy Apply</span>}
+              {job.easyApply && <span className="badge easy">Easy Apply</span>}{" "}
+              {isLocal(job) && <span className="badge local">Local</span>}
             </div>
             <div className="meta2">
               {job.salary && <span className="salary">{job.salary}</span>}

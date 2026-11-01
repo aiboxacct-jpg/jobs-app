@@ -126,6 +126,10 @@ button { font: inherit; cursor: pointer; }
   background: var(--accent-soft); color: var(--accent); border-color: transparent;
   font-weight: 700;
 }
+.badge.local {
+  background: var(--sage-soft); color: var(--sage); border-color: transparent;
+  font-weight: 700;
+}
 .salary { font-weight: 600; color: var(--ink); }
 .match-badge {
   background: var(--sage-soft); color: var(--sage); border-radius: 999px;
